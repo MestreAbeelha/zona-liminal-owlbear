@@ -15,7 +15,7 @@ function manifestPlugin() {
         manifest_version: 1,
         description: "Mostra a vida (e o Nen dos aliados) das fichas da mesa sobre os tokens, em tempo real.",
         author: "Zona Liminal",
-        action: { title: "Zona Liminal", icon: u("icone-vida.svg"), popover: u("index.html"), width: 320, height: 330 },
+        action: { title: "Zona Liminal", icon: u("icone-vida.svg"), popover: u("index.html"), width: 320, height: 400 },
         background_url: u("background.html"),
       };
       this.emitFile({ type: "asset", fileName: "manifest.json", source: JSON.stringify(manifest, null, 2) });

@@ -1,10 +1,15 @@
 # Zona Liminal — extensão do Owlbear Rodeo
 
 Mostra a **vida** das fichas sobre os tokens do mapa, em tempo real.
+- As barras ficam **abaixo do token**, com cantos arredondados.
 - **Inimigos** (fichas "Criatura" e "NPC"): só a barra de vida, sem números.
-- **Personagens e invocações**: barra de vida com números + barra fina de Nen.
+- **Personagens e invocações**: barra de vida e barra de Nen, as duas com números.
 - Vida Temporária aparece em azul-claro no fim da barra.
-- Tokens escondidos pelo Mestre escondem a barra junto.
+- **Condições**: um ícone por condição abaixo das barras. O Owlbear não permite detectar o mouse sobre itens do mapa,
+  então o nome aparece ao **selecionar** o token (cada pessoa vê no próprio navegador).
+- Botão **Esconder todas as barras de vida** no painel do ícone de coração (só Mestre).
+- Tokens escondidos pelo Mestre escondem as barras junto.
+- A fonte fica em `FONTE` no arquivo `src/comum.js` (padrão: Bangers).
 
 Como funciona: o **navegador do Mestre** lê as fichas no Firebase e desenha/atualiza as barras no mapa; os jogadores
 só veem as barras (não precisam de login nem de permissão extra). Por isso a sala precisa estar aberta no navegador do Mestre.

@@ -1,6 +1,6 @@
 import OBR, { buildPath, buildText, Command } from "@owlbear-rodeo/sdk";
 import { ouvirAuth, ehMestre, ouvirFichas } from "./fb.js";
-import { KEY_LINK, KEY_BAR, KEY_CFG, FONTE, ehInimigo, vitais, simboloCondicao } from "./comum.js";
+import { KEY_LINK, KEY_BAR, KEY_CFG, FONTE, ehInimigo, vitais, simboloCondicao, partesDoGrupo, emojiParte, tipoParte } from "./comum.js";
 
 const estado = { gm: false, fichas: null, pararFichas: null, esconder: false, agendado: null, rodando: false, denovo: false, locais: [] };
 
@@ -57,18 +57,11 @@ function barra(base, L, h, pv, max, corPreench, temp, rotulo) {
   return partes;
 }
 
-function partesDesejadas(token, b, ficha) {
-  const v = vitais(ficha);
-  const inimigo = ehInimigo(ficha);
-  const conds = v.condicoes.slice(0, 7);
-  const extras = v.condicoes.length - conds.length;
-  const L = layout(b, inimigo, v.condicoes.length);
+/** Ícones das condições (círculo + símbolo), centralizados abaixo das barras. */
+function iconesCondicoes(token, b, L, condicoes) {
   const partes = [];
-  partes.push(...barra(`${token.id}:v`, { x: L.x, y: L.y0, w: L.w }, L.hv, v.pv, v.pvMax, cor.vida, v.pvTemp,
-    inimigo ? null : `${v.pv}${v.pvTemp ? `+${v.pvTemp}` : ""}/${v.pvMax}`));
-  if (!inimigo) partes.push(...barra(`${token.id}:n`, { x: L.x, y: L.yNen, w: L.w }, L.hn, v.nen, v.nenMax, cor.nen, 0, `${v.nen}/${v.nenMax}`));
-
-  // ícones das condições (círculo + símbolo), centralizados abaixo das barras
+  const conds = condicoes.slice(0, 7);
+  const extras = condicoes.length - conds.length;
   const itens = [...conds.map((c) => ({ ...c, mais: false })), ...(extras > 0 ? [{ nome: `+${extras}`, n: 1, mais: true }] : [])];
   const total = itens.length * L.s + (itens.length - 1) * 4;
   itens.forEach((c, i) => {
@@ -79,6 +72,64 @@ function partesDesejadas(token, b, ficha) {
     const t = c.mais ? c.nome : emoji + (c.n > 1 ? c.n : "");
     partes.push(texto(`${token.id}:ct${i}`, cx, L.yIcones, L.s, L.s, t, c.mais ? L.s * 0.5 : L.s * (c.n > 1 ? 0.46 : 0.58), { contorno: 0 }));
   });
+  return partes;
+}
+
+/** Criatura composta: uma barrinha de vida por parte (com o emoji do tipo), em linhas de até 3, abaixo do token. */
+function layoutComposta(b, n, nCond, comNen) {
+  const hv = clamp(b.height * 0.14, 14, 30);
+  const hp = clamp(hv * 0.6, 8, 16);       // mais fina que a barra normal
+  const es = hp * 1.8;                      // emoji
+  const wp = clamp(hv * 2.6, 38, 78);       // bem mais curta que a barra normal
+  const gapX = 6, gapY = 4;
+  const rows = Math.ceil(n / 3), cols = Math.ceil(n / rows);
+  const cell = es + 3 + wp, rh = Math.max(hp, es);
+  const w = cols * cell + (cols - 1) * gapX;
+  const y0 = b.max.y + Math.max(4, b.height * 0.03);
+  const yFimPartes = y0 + rows * rh + (rows - 1) * gapY;
+  const hn = hv * 0.82, wN = Math.max(w, hv * 5.2);
+  const yNen = yFimPartes + 3;
+  const yFimBarras = comNen ? yNen + hn : yFimPartes;
+  const s = clamp(hv * 1.25, 18, 36);
+  return { hp, es, wp, gapX, gapY, rows, cols, cell, rh, w, x0: b.center.x - w / 2, y0, hn, wN, xN: b.center.x - wN / 2, yNen,
+    s, yIcones: yFimBarras + 5, yFimIcones: yFimBarras + 5 + (nCond ? s : 0) };
+}
+function partesDesejadasComposta(token, b, ficha, membros) {
+  const nucleo = membros.find((m) => tipoParte(m) === "torax") || membros[0];
+  const inimigo = ehInimigo(nucleo);
+  const vn = vitais(nucleo);
+  const L = layoutComposta(b, membros.length, vn.condicoes.length, !inimigo);
+  const partes = [];
+  membros.forEach((m, i) => {
+    const v = vitais(m);
+    const row = Math.floor(i / L.cols), col = i % L.cols;
+    const naLinha = Math.min(L.cols, membros.length - row * L.cols);
+    const x = L.x0 + (L.cols - naLinha) * (L.cell + L.gapX) / 2 + col * (L.cell + L.gapX);
+    const y = L.y0 + row * (L.rh + L.gapY);
+    const base = `${token.id}:p${i}`;
+    const inc = v.pv <= 0 || !!m.condicoes?.Incapacitado;
+    const pct = v.pv / v.pvMax;
+    partes.push(texto(`${base}:e`, x, y, L.es, L.rh, emojiParte(m), L.es * 0.78, { contorno: 0 }));
+    const bar = barra(base, { x: x + L.es + 3, y: y + (L.rh - L.hp) / 2, w: L.wp }, L.hp, v.pv, v.pvMax, inc ? "#d9544d" : pct <= 0.25 ? "#e0a43a" : cor.vida, v.pvTemp, null);
+    if (inc) bar[0] = { ...bar[0], borda: "#d9544d" };
+    partes.push(...bar);
+  });
+  if (!inimigo) partes.push(...barra(`${token.id}:n`, { x: L.xN, y: L.yNen, w: L.wN }, L.hn, vn.nen, vn.nenMax, cor.nen, 0, `${vn.nen}/${vn.nenMax}`));
+  partes.push(...iconesCondicoes(token, b, L, vn.condicoes));
+  return partes;
+}
+
+function partesDesejadas(token, b, ficha, todas) {
+  const membros = partesDoGrupo(ficha, todas || []);
+  if (membros.length > 1) return partesDesejadasComposta(token, b, ficha, membros);
+  const v = vitais(ficha);
+  const inimigo = ehInimigo(ficha);
+  const L = layout(b, inimigo, v.condicoes.length);
+  const partes = [];
+  partes.push(...barra(`${token.id}:v`, { x: L.x, y: L.y0, w: L.w }, L.hv, v.pv, v.pvMax, cor.vida, v.pvTemp,
+    inimigo ? null : `${v.pv}${v.pvTemp ? `+${v.pvTemp}` : ""}/${v.pvMax}`));
+  if (!inimigo) partes.push(...barra(`${token.id}:n`, { x: L.x, y: L.yNen, w: L.w }, L.hn, v.nen, v.nenMax, cor.nen, 0, `${v.nen}/${v.nenMax}`));
+  partes.push(...iconesCondicoes(token, b, L, v.condicoes));
   return partes;
 }
 
@@ -123,7 +174,7 @@ async function sincronizarAgora() {
       if (!ficha) continue;
       let b;
       try { b = await OBR.scene.items.getItemBounds([t.id]); } catch { continue; }
-      partesDesejadas(t, b, ficha).forEach((p) => desejadas.set(p.id, { p, token: t }));
+      partesDesejadas(t, b, ficha, estado.fichas).forEach((p) => desejadas.set(p.id, { p, token: t }));
     }
   } else if (!estado.esconder && !estado.fichas) {
     return; // ainda não chegaram as fichas: não apaga nada

@@ -35,3 +35,19 @@ export function vitais(f) {
     nen: Number(f.nenAtual) || 0, nenMax: Math.max(1, nenMax), condicoes,
   };
 }
+
+/* ---------- Criatura composta: cada parte do corpo é uma ficha ligada pelo mesmo composta.grupoId ---------- */
+const ORDEM_PARTES = ["torax", "bracoE", "bracoD", "pernaE", "pernaD"];
+const EMOJI_PARTE = { torax: "🫀", nucleo: "🫀", braco: "🦾", perna: "🦵", cabeca: "🗣️", outra: "🔹" };
+export function tipoParte(f) {
+  const p = f?.composta?.parte || "";
+  return f?.composta?.tipo || (p === "torax" ? "torax" : /^braco/.test(p) ? "braco" : /^perna/.test(p) ? "perna" : "outra");
+}
+export const emojiParte = (f) => EMOJI_PARTE[tipoParte(f)] || "🔹";
+const ordemParte = (f) => { const i = ORDEM_PARTES.indexOf(f?.composta?.parte); return i >= 0 ? i : 100 + (f?.composta?.ordem || 0); };
+/** Todas as partes do grupo da ficha (em ordem), ou [] se a ficha não é de criatura composta. */
+export function partesDoGrupo(ficha, todas) {
+  const g = ficha?.composta?.grupoId;
+  if (!g) return [];
+  return todas.filter((x) => x.composta?.grupoId === g).sort((a, b) => ordemParte(a) - ordemParte(b));
+}
